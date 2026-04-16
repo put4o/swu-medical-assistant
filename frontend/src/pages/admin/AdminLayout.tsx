@@ -8,20 +8,14 @@ import {
   ClipboardList,
   Database,
   GitBranch,
-  Github,
   Layers,
-  LayoutDashboard,
-  Lightbulb,
   LogOut,
   Menu,
   MessageSquare,
   KeyRound,
   Search,
-  Settings,
   Upload,
-  Users,
-  FolderKanban,
-  Workflow
+  FolderKanban
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
@@ -66,15 +60,14 @@ type MenuGroup = {
   items: MenuItem[];
 };
 
+// TODO: 以下菜单暂时隐藏，后续可恢复
+// import { LayoutDashboard } from "lucide-react";
+// import { Github, Lightbulb, Settings, Users, Workflow } from "lucide-react";
+
 const menuGroups: MenuGroup[] = [
   {
     title: "导航",
     items: [
-      {
-        path: "/admin/dashboard",
-        label: "Dashboard",
-        icon: LayoutDashboard
-      },
       {
         path: "/admin/knowledge",
         label: "知识库管理",
@@ -117,52 +110,60 @@ const menuGroups: MenuGroup[] = [
             search: "?tab=tasks"
           }
         ]
-      },
-      {
-        path: "/admin/mappings",
-        label: "关键词映射",
-        icon: KeyRound
-      },
-      {
-        path: "/admin/traces",
-        label: "链路追踪",
-        icon: Workflow
-      },
-    ]
-  },
-  {
-    title: "设置",
-    items: [
-      {
-        path: "/admin/users",
-        label: "用户管理",
-        icon: Users
-      },
-      {
-        path: "/admin/sample-questions",
-        label: "示例问题",
-        icon: Lightbulb
-      },
-      {
-        path: "/admin/settings",
-        label: "系统设置",
-        icon: Settings
-      },
+      }
+      // TODO: 以下菜单暂时隐藏，后续可恢复
+      // {
+      //   path: "/admin/dashboard",
+      //   label: "Dashboard",
+      //   icon: LayoutDashboard
+      // },
+      // {
+      //   path: "/admin/mappings",
+      //   label: "关键词映射",
+      //   icon: KeyRound
+      // },
+      // {
+      //   path: "/admin/traces",
+      //   label: "链路追踪",
+      //   icon: Workflow
+      // },
     ]
   }
+  // TODO: 以下菜单组暂时隐藏，后续可恢复
+  // {
+  //   title: "设置",
+  //   items: [
+  //     {
+  //       path: "/admin/users",
+  //       label: "用户管理",
+  //       icon: Users
+  //     },
+  //     {
+  //       path: "/admin/sample-questions",
+  //       label: "示例问题",
+  //       icon: Lightbulb
+  //     },
+  //     {
+  //       path: "/admin/settings",
+  //       label: "系统设置",
+  //       icon: Settings
+  //     },
+  //   ]
+  // }
 ];
 
 const breadcrumbMap: Record<string, string> = {
-  dashboard: "Dashboard",
   knowledge: "知识库管理",
   "intent-tree": "意图树配置",
   "intent-list": "意图列表",
   ingestion: "数据通道",
-  traces: "链路追踪",
-  "sample-questions": "示例问题",
-  mappings: "关键词映射",
-  settings: "系统设置",
-  users: "用户管理"
+  // TODO: 以下面包屑暂时隐藏，后续可恢复
+  // dashboard: "Dashboard",
+  // traces: "链路追踪",
+  // "sample-questions": "示例问题",
+  // mappings: "关键词映射",
+  // settings: "系统设置",
+  // users: "用户管理"
 };
 
 export function AdminLayout() {
@@ -177,7 +178,8 @@ export function AdminLayout() {
     newPassword: "",
     confirmPassword: ""
   });
-  const [starCount, setStarCount] = useState<number | null>(null);
+  // TODO: starCount 暂时隐藏，后续可恢复
+  // const [starCount, setStarCount] = useState<number | null>(null);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ ingestion: true, intent: true });
   const [kbQuery, setKbQuery] = useState("");
   const [kbOptions, setKbOptions] = useState<KnowledgeBase[]>([]);
@@ -186,31 +188,31 @@ export function AdminLayout() {
   const [searchFocused, setSearchFocused] = useState(false);
   const blurTimeoutRef = useRef<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const isDashboardRoute = location.pathname.startsWith("/admin/dashboard");
 
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
 
-  useEffect(() => {
-    let active = true;
-    fetch("https://api.github.com/repos/nageoffer/ragent")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!active) return;
-        const count = typeof data?.stargazers_count === "number" ? data.stargazers_count : null;
-        setStarCount(count);
-      })
-      .catch(() => {
-        if (active) {
-          setStarCount(null);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  // TODO: GitHub Star 计数暂时隐藏，后续可恢复
+  // useEffect(() => {
+  //   let active = true;
+  //   fetch("https://api.github.com/repos/nageoffer/ragent")
+  //     .then((res) => (res.ok ? res.json() : null))
+  //     .then((data) => {
+  //       if (!active) return;
+  //       const count = typeof data?.stargazers_count === "number" ? data.stargazers_count : null;
+  //       setStarCount(count);
+  //     })
+  //     .catch(() => {
+  //       if (active) {
+  //         setStarCount(null);
+  //       }
+  //     });
+  //   return () => {
+  //     active = false;
+  //   };
+  // }, []);
 
   useEffect(() => {
     if (!searchFocused) return;
@@ -256,7 +258,7 @@ export function AdminLayout() {
   const breadcrumbs = useMemo(() => {
     const segments = location.pathname.split("/").filter(Boolean);
     const items: { label: string; to?: string }[] = [
-      { label: "首页", to: "/admin/dashboard" }
+      { label: "首页", to: "/admin/knowledge" }
     ];
 
     if (segments[0] !== "admin") return items;
@@ -306,9 +308,10 @@ export function AdminLayout() {
       items.push({ label: "切片管理" });
     }
 
-    if (section === "traces" && segments.length > 2) {
-      items.push({ label: "链路详情" });
-    }
+    // TODO: 以下面包屑暂时隐藏，后续可恢复
+    // if (section === "traces" && segments.length > 2) {
+    //   items.push({ label: "链路详情" });
+    // }
 
     return items;
   }, [location.pathname, location.search]);
@@ -316,13 +319,16 @@ export function AdminLayout() {
   const avatarUrl = user?.avatar?.trim();
   const showAvatar = Boolean(avatarUrl);
   const roleLabel = user?.role === "admin" ? "管理员" : "成员";
-  const starLabel = useMemo(() => {
-    if (starCount === null) return "--";
-    if (starCount < 1000) return String(starCount);
-    const rounded = Math.round((starCount / 1000) * 10) / 10;
-    const text = String(rounded).replace(/\.0$/, "");
-    return `${text}k`;
-  }, [starCount]);
+
+  // TODO: starLabel 暂时隐藏，后续可恢复
+  // const starLabel = useMemo(() => {
+  //   if (starCount === null) return "--";
+  //   if (starCount < 1000) return String(starCount);
+  //   const rounded = Math.round((starCount / 1000) * 10) / 10;
+  //   const text = String(rounded).replace(/\.0$/, "");
+  //   return `${text}k`;
+  // }, [starCount]);
+
   const isIngestionActive = location.pathname.startsWith("/admin/ingestion");
   const isIntentActive =
     location.pathname.startsWith("/admin/intent-tree") || location.pathname.startsWith("/admin/intent-list");
@@ -513,22 +519,22 @@ export function AdminLayout() {
                     });
                   }
 
-                      return (
-                        <div key={item.label} className="space-y-1">
-                          <button
-                            type="button"
-                            onClick={() => setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }))}
-                            className={cn(
-                              "admin-sidebar__item admin-sidebar__item--group w-full text-white/60",
-                              isGroupActive && "admin-sidebar__item--group-active text-white"
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "admin-sidebar__item-indicator",
-                                isGroupActive && "is-group-active"
-                              )}
-                            />
+                  return (
+                    <div key={item.label} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }))}
+                        className={cn(
+                          "admin-sidebar__item admin-sidebar__item--group w-full text-white/60",
+                          isGroupActive && "admin-sidebar__item--group-active text-white"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "admin-sidebar__item-indicator",
+                            isGroupActive && "is-group-active"
+                          )}
+                        />
                         <item.icon className="admin-sidebar__item-icon" />
                         <span className="flex-1 text-left">{item.label}</span>
                         {isOpen ? (
@@ -586,8 +592,7 @@ export function AdminLayout() {
 
       <div
         className={cn(
-          "admin-main flex min-h-screen flex-1 flex-col overflow-auto",
-          isDashboardRoute && "dashboard-scroll-shell"
+          "admin-main flex min-h-screen flex-1 flex-col overflow-auto"
         )}
       >
         <header className="admin-topbar">
@@ -688,19 +693,8 @@ export function AdminLayout() {
                 <MessageSquare className="h-4 w-4" />
                 返回聊天
               </Button>
-              <a
-                href="https://github.com/nageoffer/ragent"
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="打开 GitHub 仓库"
-              >
-                <Github className="h-4 w-4" />
-                <span className="font-medium">Star</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                  {starLabel}
-                </span>
-              </a>
+              {/* TODO: GitHub Star 按钮暂时隐藏，后续可恢复 */}
+              {/* <GithubIcon /> */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button

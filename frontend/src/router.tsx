@@ -4,7 +4,6 @@ import { LoginPage } from "@/pages/LoginPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
-import { DashboardPage } from "@/pages/admin/dashboard/DashboardPage";
 import { KnowledgeListPage } from "@/pages/admin/knowledge/KnowledgeListPage";
 import { KnowledgeDocumentsPage } from "@/pages/admin/knowledge/KnowledgeDocumentsPage";
 import { KnowledgeChunksPage } from "@/pages/admin/knowledge/KnowledgeChunksPage";
@@ -12,12 +11,15 @@ import { IntentTreePage } from "@/pages/admin/intent-tree/IntentTreePage";
 import { IntentListPage } from "@/pages/admin/intent-tree/IntentListPage";
 import { IntentEditPage } from "@/pages/admin/intent-tree/IntentEditPage";
 import { IngestionPage } from "@/pages/admin/ingestion/IngestionPage";
-import { RagTracePage } from "@/pages/admin/traces/RagTracePage";
-import { RagTraceDetailPage } from "@/pages/admin/traces/RagTraceDetailPage";
-import { SystemSettingsPage } from "@/pages/admin/settings/SystemSettingsPage";
-import { SampleQuestionPage } from "@/pages/admin/sample-questions/SampleQuestionPage";
-import { QueryTermMappingPage } from "@/pages/admin/query-term-mapping/QueryTermMappingPage";
-import { UserListPage } from "@/pages/admin/users/UserListPage";
+
+// TODO: 以下页面暂时隐藏，后续可恢复
+// import { DashboardPage } from "@/pages/admin/dashboard/DashboardPage";
+// import { RagTracePage } from "@/pages/admin/traces/RagTracePage";
+// import { RagTraceDetailPage } from "@/pages/admin/traces/RagTraceDetailPage";
+// import { SystemSettingsPage } from "@/pages/admin/settings/SystemSettingsPage";
+// import { SampleQuestionPage } from "@/pages/admin/sample-questions/SampleQuestionPage";
+// import { QueryTermMappingPage } from "@/pages/admin/query-term-mapping/QueryTermMappingPage";
+// import { UserListPage } from "@/pages/admin/users/UserListPage";
 import { useAuthStore } from "@/stores/authStore";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -95,11 +97,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/admin/dashboard" replace />
-      },
-      {
-        path: "dashboard",
-        element: <DashboardPage />
+        element: <Navigate to="/admin/knowledge" replace />
       },
       {
         path: "knowledge",
@@ -129,30 +127,35 @@ export const router = createBrowserRouter([
         path: "ingestion",
         element: <IngestionPage />
       },
-      {
-        path: "traces",
-        element: <RagTracePage />
-      },
-      {
-        path: "traces/:traceId",
-        element: <RagTraceDetailPage />
-      },
-      {
-        path: "settings",
-        element: <SystemSettingsPage />
-      },
-      {
-        path: "sample-questions",
-        element: <SampleQuestionPage />
-      },
-      {
-        path: "mappings",
-        element: <QueryTermMappingPage />
-      },
-      {
-        path: "users",
-        element: <UserListPage />
-      }
+      // TODO: 以下路由暂时隐藏，后续可恢复
+      // {
+      //   path: "dashboard",
+      //   element: <DashboardPage />
+      // },
+      // {
+      //   path: "traces",
+      //   element: <RagTracePage />
+      // },
+      // {
+      //   path: "traces/:traceId",
+      //   element: <RagTraceDetailPage />
+      // },
+      // {
+      //   path: "settings",
+      //   element: <SystemSettingsPage />
+      // },
+      // {
+      //   path: "sample-questions",
+      //   element: <SampleQuestionPage />
+      // },
+      // {
+      //   path: "mappings",
+      //   element: <QueryTermMappingPage />
+      // },
+      // {
+      //   path: "users",
+      //   element: <UserListPage />
+      // }
     ]
   },
   {
