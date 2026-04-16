@@ -138,7 +138,10 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
         // 每次都从Redis读取最新数据
         IntentTreeData data = loadIntentTreeData();
 
+        //构建系统提示词
         String systemPrompt = buildPrompt(data.leafNodes);
+
+        //构建请求
         ChatRequest request = ChatRequest.builder()
                 .messages(List.of(
                         ChatMessage.system(systemPrompt),
@@ -149,15 +152,20 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
                 .thinking(false)
                 .build();
 
+        //调用LLM
         String raw = llmService.chat(request);
+        //解析结果
 
         try {
             // 移除可能的 markdown 代码块标记
             String cleanedRaw = LLMResponseCleaner.stripMarkdownCodeFence(raw);
-
+            //解析JSON
             JsonElement root = JsonParser.parseString(cleanedRaw);
 
             JsonArray arr;
+            //如果根元素是JSON数组，则直接赋值
+            //如果根元素是JSON对象，并且有results属性，则获取results属性值
+            //否则，返回空列表
             if (root.isJsonArray()) {
                 arr = root.getAsJsonArray();
             } else if (root.isJsonObject() && root.getAsJsonObject().has("results")) {
@@ -168,17 +176,26 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
                 return List.of();
             }
 
+            //遍历JSON数组
             List<NodeScore> scores = new ArrayList<>();
             for (JsonElement el : arr) {
+                //如果元素不是JSON对象，则跳过
                 if (!el.isJsonObject()) continue;
+                //获取JSON对象
                 JsonObject obj = el.getAsJsonObject();
 
+                //如果JSON对象没有id或score属性，则跳过
                 if (!obj.has("id") || !obj.has("score")) continue;
+                //获取id和score属性值
 
+                //获取意图节点
                 String id = obj.get("id").getAsString();
+                //获取意图分数
                 double score = obj.get("score").getAsDouble();
 
+                //获取意图节点
                 IntentNode node = data.id2Node.get(id);
+                //如果意图节点不存在，则跳过
                 if (node == null) {
                     log.warn("LLM 返回了未知的意图节点 ID: {}, 已跳过", id);
                     continue;

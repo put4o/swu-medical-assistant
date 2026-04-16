@@ -51,18 +51,24 @@ public class IntentResolver {
 
     @RagTraceNode(name = "intent-resolve", type = "INTENT")
     public List<SubQuestionIntent> resolve(RewriteResult rewriteResult) {
+        //确定要识别的问题的列表
         List<String> subQuestions = CollUtil.isNotEmpty(rewriteResult.subQuestions())
                 ? rewriteResult.subQuestions()
                 : List.of(rewriteResult.rewrittenQuestion());
+        
+        //并行对每个子问题做意图识别
         List<CompletableFuture<SubQuestionIntent>> tasks = subQuestions.stream()
                 .map(q -> CompletableFuture.supplyAsync(
                         () -> new SubQuestionIntent(q, classifyIntents(q)),
                         intentClassifyExecutor
                 ))
                 .toList();
+
+        //等待所有子问题意图识别完成
         List<SubQuestionIntent> subIntents = tasks.stream()
                 .map(CompletableFuture::join)
                 .toList();
+        //限制总意图数量不超过 MAX_INTENT_COUNT，确保每个子问题至少有1个意图
         return capTotalIntents(subIntents);
     }
 
@@ -83,7 +89,9 @@ public class IntentResolver {
     }
 
     private List<NodeScore> classifyIntents(String question) {
+        //意图分类
         List<NodeScore> scores = intentClassifier.classifyTargets(question);
+        //过滤分数小于INTENT_MIN_SCORE的意图
         return scores.stream()
                 .filter(ns -> ns.getScore() >= INTENT_MIN_SCORE)
                 .limit(MAX_INTENT_COUNT)

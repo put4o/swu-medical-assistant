@@ -80,43 +80,60 @@ public class RAGChatServiceImpl implements RAGChatService {
     @Override
     @ChatRateLimit
     public void streamChat(String question, String conversationId, Boolean deepThinking, SseEmitter emitter) {
+        //生成会话ID，如果会话ID为空，则生成一个雪花ID
         String actualConversationId = StrUtil.isBlank(conversationId) ? IdUtil.getSnowflakeNextIdStr() : conversationId;
+        //生成任务ID，用于链路追踪，如果任务ID为空，则生成一个雪花ID
         String taskId = StrUtil.isBlank(RagTraceContext.getTaskId())
                 ? IdUtil.getSnowflakeNextIdStr()
                 : RagTraceContext.getTaskId();
         log.info("开始流式对话，会话ID：{}，任务ID：{}", actualConversationId, taskId);
         boolean thinkingEnabled = Boolean.TRUE.equals(deepThinking);
 
+        //创建sse回调
         StreamCallback callback = callbackFactory.createChatEventHandler(emitter, actualConversationId, taskId);
 
+        //获取用户ID
         String userId = UserContext.getUserId();
+        //加载会话历史记录，并追加用户问题
         List<ChatMessage> history = memoryService.loadAndAppend(actualConversationId, userId, ChatMessage.user(question));
 
+        //改写拆分
         RewriteResult rewriteResult = queryRewriteService.rewriteWithSplit(question, history);
+        //意图识别
         List<SubQuestionIntent> subIntents = intentResolver.resolve(rewriteResult);
 
+        //歧义引导
         GuidanceDecision guidanceDecision = guidanceService.detectAmbiguity(rewriteResult.rewrittenQuestion(), subIntents);
+        //如果歧义引导为提示，则直接返回提示
         if (guidanceDecision.isPrompt()) {
             callback.onContent(guidanceDecision.getPrompt());
             callback.onComplete();
             return;
         }
 
+        //判断是否所有意图都是系统意图
         boolean allSystemOnly = subIntents.stream()
                 .allMatch(si -> intentResolver.isSystemOnly(si.nodeScores()));
         if (allSystemOnly) {
+            //获取系统意图的提示词
             String customPrompt = subIntents.stream()
+                    //获取意图分数列表  flatMap将每个子问题中的意图分数列表扁平化
                     .flatMap(si -> si.nodeScores().stream())
+                    //获取意图提示词  map将每个意图分数转换为提示词
                     .map(ns -> ns.getNode().getPromptTemplate())
-                    .filter(StrUtil::isNotBlank)
+                    .filter(StrUtil::isNotBlank) //过滤空提示词
                     .findFirst()
                     .orElse(null);
+            //直接调用 LLM 流式返回，不会走 RAG 检索流程
             StreamCancellationHandle handle = streamSystemResponse(rewriteResult.rewrittenQuestion(), history, customPrompt, callback);
+            //绑定任务ID
             taskManager.bindHandle(taskId, handle);
             return;
         }
 
+        //检索
         RetrievalContext ctx = retrievalEngine.retrieve(subIntents, DEFAULT_TOP_K);
+        //如果检索结果为空，则返回空回复
         if (ctx.isEmpty()) {
             String emptyReply = "未检索到与问题相关的文档内容。";
             callback.onContent(emptyReply);
@@ -127,6 +144,7 @@ public class RAGChatServiceImpl implements RAGChatService {
         // 聚合所有意图用于 prompt 规划
         IntentGroup mergedGroup = intentResolver.mergeIntentGroup(subIntents);
 
+        //流式输出
         StreamCancellationHandle handle = streamLLMResponse(
                 rewriteResult,
                 ctx,

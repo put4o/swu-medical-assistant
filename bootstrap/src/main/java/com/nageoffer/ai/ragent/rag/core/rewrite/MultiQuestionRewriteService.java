@@ -68,14 +68,19 @@ public class MultiQuestionRewriteService implements QueryRewriteService {
     @Override
     @RagTraceNode(name = "query-rewrite-and-split", type = "REWRITE")
     public RewriteResult rewriteWithSplit(String userQuestion, List<ChatMessage> history) {
+        //如果查询改写开关关闭，则直接做规则归一化 + 规则拆分
         if (!ragConfigProperties.getQueryRewriteEnabled()) {
+            //做规则归一化
             String normalized = queryTermMappingService.normalize(userQuestion);
+            //做规则拆分
             List<String> subs = ruleBasedSplit(normalized);
             return new RewriteResult(normalized, subs);
         }
 
+        //查询改写开关打开，则调用LLM做改写 + 拆分
+        //先做归一化
         String normalizedQuestion = queryTermMappingService.normalize(userQuestion);
-
+        //再调用LLM做改写 + 拆分
         return callLLMRewriteAndSplit(normalizedQuestion, userQuestion, history);
     }
 
@@ -100,13 +105,17 @@ public class MultiQuestionRewriteService implements QueryRewriteService {
     private RewriteResult callLLMRewriteAndSplit(String normalizedQuestion,
                                                  String originalQuestion,
                                                  List<ChatMessage> history) {
+        //加载系统提示词
         String systemPrompt = promptTemplateLoader.load(QUERY_REWRITE_AND_SPLIT_PROMPT_PATH);
+        //构建请求
         ChatRequest req = buildRewriteRequest(systemPrompt, normalizedQuestion, history);
-
+        //调用LLM
         try {
+            //调用LLM
             String raw = llmService.chat(req);
+            //解析结果
             RewriteResult parsed = parseRewriteAndSplit(raw);
-
+            //如果解析结果不为空，则返回解析结果
             if (parsed != null) {
                 log.info("""
                         RAG用户问题查询改写+拆分：
@@ -130,7 +139,9 @@ public class MultiQuestionRewriteService implements QueryRewriteService {
     private ChatRequest buildRewriteRequest(String systemPrompt,
                                             String question,
                                             List<ChatMessage> history) {
+                                                //构建消息列表  
         List<ChatMessage> messages = new ArrayList<>();
+        //如果系统提示词不为空，则添加系统提示词
         if (StrUtil.isNotBlank(systemPrompt)) {
             messages.add(ChatMessage.system(systemPrompt));
         }
@@ -146,7 +157,9 @@ public class MultiQuestionRewriteService implements QueryRewriteService {
             messages.addAll(recentHistory);
         }
 
+        //添加用户问题
         messages.add(ChatMessage.user(question));
+        //构建请求
 
         return ChatRequest.builder()
                 .messages(messages)
@@ -194,15 +207,16 @@ public class MultiQuestionRewriteService implements QueryRewriteService {
     }
 
     private List<String> ruleBasedSplit(String question) {
-        // 兜底：按常见分隔符拆分
+        // 兜底：按常见分隔符拆分，去掉收尾空格，去掉空字符串
         List<String> parts = Arrays.stream(question.split("[?？。；;\\n]+"))
                 .map(String::trim)
                 .filter(StrUtil::isNotBlank)
                 .collect(Collectors.toList());
-
+        //如果拆分结果为空，则返回原始问题
         if (CollUtil.isEmpty(parts)) {
             return List.of(question);
         }
+        //如果拆分结果不为空，则将结果中的问号改为？
         return parts.stream()
                 .map(s -> s.endsWith("？") || s.endsWith("?") ? s : s + "？")
                 .toList();

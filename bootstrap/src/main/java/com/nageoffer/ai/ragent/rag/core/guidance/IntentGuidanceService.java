@@ -49,53 +49,62 @@ public class IntentGuidanceService {
     private final PromptTemplateLoader promptTemplateLoader;
 
     public GuidanceDecision detectAmbiguity(String question, List<SubQuestionIntent> subIntents) {
+        //如果歧义引导开关关闭，则直接返回none
         if (!Boolean.TRUE.equals(guidanceProperties.getEnabled())) {
             return GuidanceDecision.none();
         }
-
+        //查找歧义组
         AmbiguityGroup group = findAmbiguityGroup(subIntents);
         if (group == null || CollUtil.isEmpty(group.optionIds())) {
             return GuidanceDecision.none();
         }
-
+        //获取意图名称列表
         List<String> systemNames = resolveOptionNames(group.optionIds());
+        //如果问题中包含系统意图名称，则跳过歧义引导
         if (shouldSkipGuidance(question, systemNames)) {
             return GuidanceDecision.none();
         }
-
+        //构建提示词
         String prompt = buildPrompt(group.topicName(), group.optionIds());
+        //返回提示词
         return GuidanceDecision.prompt(prompt);
     }
 
+    //查找歧义组
     private AmbiguityGroup findAmbiguityGroup(List<SubQuestionIntent> subIntents) {
+        //如果子问题列表为空或子问题数量不为1，则直接返回null
         if (CollUtil.isEmpty(subIntents) || subIntents.size() != 1) {
             return null;
         }
-
+        //过滤候选节点，仅留下分数大于INTENT_MIN_SCORE，并且是知识库意图
         List<NodeScore> candidates = filterCandidates(subIntents.get(0).nodeScores());
+        //如果候选节点数量小于2，则直接返回null
         if (candidates.size() < 2) {
             return null;
         }
-
+        //按意图名称分组
         Map<String, List<NodeScore>> grouped = candidates.stream()
                 .filter(ns -> StrUtil.isNotBlank(ns.getNode().getName()))
                 .collect(Collectors.groupingBy(ns -> normalizeName(ns.getNode().getName())));
-
+        //按意图名称分组
         Optional<Map.Entry<String, List<NodeScore>>> best = grouped.entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), sortByScore(entry.getValue())))
-                .filter(entry -> entry.getValue().size() > 1)
-                .filter(entry -> passScoreRatio(entry.getValue()))
-                .filter(entry -> hasMultipleSystems(entry.getValue()))
-                .max(Comparator.comparingDouble(entry -> entry.getValue().get(0).getScore()));
-
+                .filter(entry -> entry.getValue().size() > 1) //如果意图数量小于2，则跳过
+                .filter(entry -> passScoreRatio(entry.getValue())) //如果意图分数比例小于阈值，则跳过
+                .filter(entry -> hasMultipleSystems(entry.getValue())) //如果意图系统数量小于2，则跳过
+                .max(Comparator.comparingDouble(entry -> entry.getValue().get(0).getScore())); //按意图分数排序
+        //如果最佳意图为空，则直接返回null
         if (best.isEmpty()) {
             return null;
         }
-
+        //获取最佳意图
         List<NodeScore> groupScores = best.get().getValue();
+        //获取意图名称
         String topicName = Optional.ofNullable(groupScores.get(0).getNode().getName())
                 .orElse(best.get().getKey());
+        //获取意图ID列表
         List<String> optionIds = collectSystemOptions(groupScores);
+        //如果意图ID列表数量小于2，则直接返回null
         if (optionIds.size() < 2) {
             return null;
         }
@@ -103,15 +112,19 @@ public class IntentGuidanceService {
     }
 
     private List<NodeScore> filterCandidates(List<NodeScore> scores) {
+        //如果分数列表为空，则直接返回空列表
         if (CollUtil.isEmpty(scores)) {
             return List.of();
         }
+        //过滤分数小于INTENT_MIN_SCORE的意图
+        //过滤非知识库意图
         return scores.stream()
-                .filter(ns -> ns.getScore() >= RAGConstant.INTENT_MIN_SCORE)
-                .filter(ns -> ns.getNode() != null && ns.getNode().isKB())
-                .toList();
+                .filter(ns -> ns.getScore() >= RAGConstant.INTENT_MIN_SCORE) //如果意图分数小于INTENT_MIN_SCORE，则跳过
+                .filter(ns -> ns.getNode() != null && ns.getNode().isKB()) //如果意图节点为空或意图节点不是知识库意图，则跳过
+                .toList(); //返回过滤后的意图列表
     }
 
+    //收集系统意图ID列表
     private List<String> collectSystemOptions(List<NodeScore> groupScores) {
         Set<String> ordered = new LinkedHashSet<>();
         for (NodeScore score : groupScores) {
@@ -144,7 +157,8 @@ public class IntentGuidanceService {
         }
         return false;
     }
-
+    
+    //获取系统意图名称
     private List<String> resolveOptionNames(List<String> optionIds) {
         if (CollUtil.isEmpty(optionIds)) {
             return List.of();
