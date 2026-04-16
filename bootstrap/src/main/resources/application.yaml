@@ -112,13 +112,13 @@ ai:
         embedding: /api/embed
     bailian:
       url: https://dashscope.aliyuncs.com
-      api-key: ${BAILIAN_API_KEY:}
+      api-key: sk-e69f7d24a45743e2996e26ffe5d1d41a
       endpoints:
         chat: /compatible-mode/v1/chat/completions
         rerank: /api/v1/services/rerank/text-rerank/text-rerank
     siliconflow:
       url: https://api.siliconflow.cn
-      api-key: ${SILICONFLOW_API_KEY:}
+      api-key: sk-xtpzyzixrnxtyyxqckzucdhrgubzkfmksjsqihsgyxzsqdxb
       endpoints:
         chat: /v1/chat/completions
         embedding: /v1/embeddings

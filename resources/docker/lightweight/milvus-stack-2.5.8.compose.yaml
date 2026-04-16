@@ -14,8 +14,8 @@ services:
       - "rustfsadmin"
       - "/data"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "29000:9000"
+      - "29001:9001"
     volumes:
       - rustfs-data:/data
     restart: unless-stopped
