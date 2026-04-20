@@ -13,9 +13,7 @@ import {
   Menu,
   MessageSquare,
   KeyRound,
-  Search,
-  Upload,
-  FolderKanban
+  Search
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
@@ -90,27 +88,28 @@ const menuGroups: MenuGroup[] = [
             icon: ClipboardList
           }
         ]
-      },
-      {
-        id: "ingestion",
-        path: "/admin/ingestion",
-        label: "数据通道",
-        icon: Upload,
-        children: [
-          {
-            path: "/admin/ingestion",
-            label: "流水线管理",
-            icon: FolderKanban,
-            search: "?tab=pipelines"
-          },
-          {
-            path: "/admin/ingestion",
-            label: "流水线任务",
-            icon: ClipboardList,
-            search: "?tab=tasks"
-          }
-        ]
       }
+      // TODO: 以下菜单暂时隐藏，后续可恢复
+      // {
+      //   id: "ingestion",
+      //   path: "/admin/ingestion",
+      //   label: "数据通道",
+      //   icon: Upload,
+      //   children: [
+      //     {
+      //       path: "/admin/ingestion",
+      //       label: "流水线管理",
+      //       icon: FolderKanban,
+      //       search: "?tab=pipelines"
+      //     },
+      //     {
+      //       path: "/admin/ingestion",
+      //       label: "流水线任务",
+      //       icon: ClipboardList,
+      //       search: "?tab=tasks"
+      //     }
+      //   ]
+      // }
       // TODO: 以下菜单暂时隐藏，后续可恢复
       // {
       //   path: "/admin/dashboard",
@@ -180,7 +179,7 @@ export function AdminLayout() {
   });
   // TODO: starCount 暂时隐藏，后续可恢复
   // const [starCount, setStarCount] = useState<number | null>(null);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ ingestion: true, intent: true });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ intent: true });
   const [kbQuery, setKbQuery] = useState("");
   const [kbOptions, setKbOptions] = useState<KnowledgeBase[]>([]);
   const [docOptions, setDocOptions] = useState<KnowledgeDocumentSearchItem[]>([]);
@@ -329,17 +328,15 @@ export function AdminLayout() {
   //   return `${text}k`;
   // }, [starCount]);
 
-  const isIngestionActive = location.pathname.startsWith("/admin/ingestion");
   const isIntentActive =
     location.pathname.startsWith("/admin/intent-tree") || location.pathname.startsWith("/admin/intent-list");
 
   useEffect(() => {
     setOpenGroups((prev) => ({
       ...prev,
-      ingestion: prev.ingestion || isIngestionActive,
       intent: prev.intent || isIntentActive
     }));
-  }, [isIngestionActive, isIntentActive]);
+  }, [isIntentActive]);
 
   const handlePasswordSubmit = async () => {
     if (!passwordForm.currentPassword || !passwordForm.newPassword) {
@@ -442,12 +439,14 @@ export function AdminLayout() {
     <div className="admin-layout flex h-screen">
       <aside className={cn("admin-sidebar", collapsed && "admin-sidebar--collapsed")}>
         <div className="admin-sidebar__brand">
-          <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-            <div className="admin-sidebar__logo">R</div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden">
+              <img src="/OIP.png" alt="西南大学校医院" className="h-full w-full object-contain" />
+            </div>
             {!collapsed && (
               <div className="min-w-0">
-                <h1 className="admin-sidebar__title">Ragent AI 管理后台</h1>
-                <p className="admin-sidebar__subtitle">Knowledge Console</p>
+                <h1 className="admin-sidebar__title">西南大学校医院</h1>
+                <p className="admin-sidebar__subtitle">智能医疗助手</p>
               </div>
             )}
           </div>

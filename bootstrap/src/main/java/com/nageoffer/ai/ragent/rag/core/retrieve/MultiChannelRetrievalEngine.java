@@ -68,7 +68,9 @@ public class MultiChannelRetrievalEngine {
         SearchContext context = buildSearchContext(subIntents, topK);
 
         // 【阶段1：多通道并行检索】
+        // 执行所有启用的检索通道
         List<SearchChannelResult> channelResults = executeSearchChannels(context);
+        // 如果检索结果为空，则返回空的检索结果
         if (CollUtil.isEmpty(channelResults)) {
             return List.of();
         }
@@ -83,6 +85,9 @@ public class MultiChannelRetrievalEngine {
     private List<SearchChannelResult> executeSearchChannels(SearchContext context) {
         // 过滤启用的通道
         List<SearchChannel> enabledChannels = searchChannels.stream()
+                //情况1：意图清晰 → IntentDirectedSearch 启用，VectorGlobalSearch 不启用
+                //情况2：意图模糊 → IntentDirectedSearch 不启用，VectorGlobalSearch 启用
+                //情况3：两者同时模糊 → 两个通道都启用，并行跑，谁有结果用谁
                 .filter(channel -> channel.isEnabled(context))
                 .sorted(Comparator.comparingInt(SearchChannel::getPriority))
                 .toList();
@@ -167,6 +172,9 @@ public class MultiChannelRetrievalEngine {
     private List<RetrievedChunk> executePostProcessors(List<SearchChannelResult> results,
                                                        SearchContext context) {
         // 过滤启用的处理器并排序
+        //有两个后置处理器：
+        //1. DeduplicationPostProcessor：去重
+        //2. RerankPostProcessor：对 Chunk 列表进行重排序
         List<SearchResultPostProcessor> enabledProcessors = postProcessors.stream()
                 .filter(processor -> processor.isEnabled(context))
                 .sorted(Comparator.comparingInt(SearchResultPostProcessor::getOrder))

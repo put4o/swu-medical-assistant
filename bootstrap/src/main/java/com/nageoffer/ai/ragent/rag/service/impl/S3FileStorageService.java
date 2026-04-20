@@ -123,6 +123,7 @@ public class S3FileStorageService implements FileStorageService {
     private StoredFileDTO streamUploadToS3(String bucketName, InputStream inputStream,
                                            long size, String originalFilename,
                                            String detectedContentType) {
+        //uuid+文件类型拼接
         String s3Key = generateS3Key(originalFilename);
 
         // 1. 生成预签名 URL（纯 CPU 计算，无 IO）

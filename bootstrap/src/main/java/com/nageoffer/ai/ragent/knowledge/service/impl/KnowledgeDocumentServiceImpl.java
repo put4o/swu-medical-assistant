@@ -123,9 +123,13 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(kbId);
         Assert.notNull(kbDO, () -> new ClientException("知识库不存在"));
 
+        //文档来源
         SourceType sourceType = SourceType.normalize(requestParam.getSourceType());
+        //校验来源类型与定时任务配置是否兼容
         validateSourceAndSchedule(sourceType, requestParam);
+        //根据来源类型决定如何处理文件，本地文件存储到对象存储s3
         StoredFileDTO stored = resolveStoredFile(kbDO.getCollectionName(), sourceType, requestParam.getSourceLocation(), file);
+        //解析文档处理模式配置（用的切分策略、走什么pipline）
         ProcessModeConfig modeConfig = resolveProcessModeConfig(requestParam);
 
         KnowledgeDocumentDO documentDO = KnowledgeDocumentDO.builder()
@@ -160,12 +164,15 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 .operator(UserContext.getUsername())
                 .build();
 
+        //发送消息到消息队列
         messageQueueProducer.sendInTransaction(
                 chunkTopic,
                 docId,
                 "文档分块",
                 event,
+                //消息投递成功后自动调用
                 arg -> {
+                    //更新文档状态为running
                     int updated = documentMapper.update(
                             new LambdaUpdateWrapper<KnowledgeDocumentDO>()
                                     .set(KnowledgeDocumentDO::getStatus, DocumentStatus.RUNNING.getCode())
@@ -173,12 +180,15 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                                     .eq(KnowledgeDocumentDO::getId, docId)
                                     .ne(KnowledgeDocumentDO::getStatus, DocumentStatus.RUNNING.getCode())
                     );
+                    //如果更新了0行，说明被其他线程更新了
                     if (updated == 0) {
                         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
                         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
                         throw new ClientException("文档分块操作正在进行中，请稍后再试");
                     }
+                    //更新成功过
                     KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
+                    //发送定时任务，用于定期重新分块
                     event.setKbId(documentDO.getKbId());
                     scheduleService.upsertSchedule(documentDO);
                 }
@@ -200,6 +210,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         String docId = documentDO.getId();
         ProcessMode processMode = ProcessMode.normalize(documentDO.getProcessMode());
 
+        //写入日志表，用于记录分块任务的执行情况
         KnowledgeDocumentChunkLogDO chunkLog = KnowledgeDocumentChunkLogDO.builder()
                 .docId(docId)
                 .status(DocumentStatus.RUNNING.getCode())
@@ -223,6 +234,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 chunkResults = runPipelineProcess(documentDO);
                 chunkDuration = System.currentTimeMillis() - start;
             } else {
+                //分块模式
                 ChunkProcessResult result = runChunkProcess(documentDO);
                 extractDuration = result.extractDuration();
                 chunkDuration = result.chunkDuration();
@@ -230,9 +242,12 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 chunkResults = result.chunks();
             }
 
+            //持久化分块结果
             long persistStart = System.currentTimeMillis();
             String collectionName = resolveCollectionName(documentDO.getKbId());
+            //执行持久化
             int savedCount = persistChunksAndVectorsAtomically(collectionName, docId, chunkResults);
+            //计算持久化耗时
             persistDuration = System.currentTimeMillis() - persistStart;
 
             long totalDuration = System.currentTimeMillis() - totalStartTime;
@@ -248,6 +263,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
     }
 
     private int persistChunksAndVectorsAtomically(String collectionName, String docId, List<VectorChunk> chunkResults) {
+        //将分块结果转换为写入请求对象
         List<KnowledgeChunkCreateRequest> chunks = chunkResults.stream()
                 .map(vc -> {
                     KnowledgeChunkCreateRequest req = new KnowledgeChunkCreateRequest();
@@ -257,11 +273,17 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                     return req;
                 })
                 .toList();
+        //通过事务，执行持久化
         transactionOperations.executeWithoutResult(status -> {
+            //删除旧的分块
             knowledgeChunkService.deleteByDocId(docId);
+            //创建新分块    
             knowledgeChunkService.batchCreate(docId, chunks);
+            //删除旧的向量
             vectorStoreService.deleteDocumentVectors(collectionName, docId);
+            //索引新分块
             vectorStoreService.indexDocumentChunks(collectionName, docId, chunkResults);
+            //更新文档状态，把running改为success
             KnowledgeDocumentDO updateDocumentDO = KnowledgeDocumentDO.builder()
                     .id(docId)
                     .chunkCount(chunks.size())
@@ -296,22 +318,31 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
      * 4 阶段中的前 3 阶段：Extract → Chunk → Embed
      */
     private ChunkProcessResult runChunkProcess(KnowledgeDocumentDO documentDO) {
+        //获取切分策略
         ChunkingMode chunkingMode = ChunkingMode.fromValue(documentDO.getChunkStrategy());
+        //获取知识库
         KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(documentDO.getKbId());
+        //获取embedding模型
         String embeddingModel = kbDO.getEmbeddingModel();
+        //构建切分配置
         ChunkingOptions config = buildChunkingOptions(chunkingMode, documentDO);
 
         long extractStart = System.currentTimeMillis();
+        //读取文件内容
         try (InputStream is = fileStorageService.openStream(documentDO.getFileUrl())) {
+            //提取文本内容，得到纯文本字符串，使用 Apache Tika 做文件解析——它能处理 PDF、DOCX、HTML、PPT 等多种格式，输出统一的纯文本。
             String text = parserSelector.select(ParserType.TIKA.getType()).extractText(is, documentDO.getDocName());
+            //计算提取文本内容耗时
             long extractDuration = System.currentTimeMillis() - extractStart;
-
+            //获取切分策略
             ChunkingStrategy chunkingStrategy = chunkingStrategyFactory.requireStrategy(chunkingMode);
             long chunkStart = System.currentTimeMillis();
+            //分块
             List<VectorChunk> chunks = chunkingStrategy.chunk(text, config);
             long chunkDuration = System.currentTimeMillis() - chunkStart;
 
             long embedStart = System.currentTimeMillis();
+            //嵌入
             chunkEmbeddingService.embed(chunks, embeddingModel);
             long embedDuration = System.currentTimeMillis() - embedStart;
 

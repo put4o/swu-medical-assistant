@@ -80,6 +80,7 @@ public class RetrievalEngine {
      */
     @RagTraceNode(name = "retrieval-engine", type = "RETRIEVE")
     public RetrievalContext retrieve(List<SubQuestionIntent> subIntents, int topK) {
+        // 如果子问题意图列表为空，则返回空的检索上下文
         if (CollUtil.isEmpty(subIntents)) {
             return RetrievalContext.builder()
                     .mcpContext("")
@@ -88,11 +89,15 @@ public class RetrievalEngine {
                     .build();
         }
 
+        // 如果 topK 小于等于 0，则使用默认值
         int finalTopK = topK > 0 ? topK : DEFAULT_TOP_K;
+        // 构建子问题上下文任务列表
         List<CompletableFuture<SubQuestionContext>> tasks = subIntents.stream()
                 .map(si -> CompletableFuture.supplyAsync(
+                     // 构建子问题上下文任务
                         () -> buildSubQuestionContext(
                                 si,
+                                // 计算改用多大的top-k
                                 resolveSubQuestionTopK(si, finalTopK)
                         ),
                         ragContextExecutor
@@ -125,10 +130,14 @@ public class RetrievalEngine {
                 .build();
     }
 
+    // 构建子问题上下文
     private SubQuestionContext buildSubQuestionContext(SubQuestionIntent intent, int topK) {
+        // 过滤出 知识库类型的 意图节点
         List<NodeScore> kbIntents = filterKbIntents(intent.nodeScores());
+        // 过滤出 MCP 意图节点
         List<NodeScore> mcpIntents = filterMCPIntents(intent.nodeScores());
 
+        // 检索并重排 KB 结果
         KbResult kbResult = retrieveAndRerank(intent, kbIntents, topK);
 
         String mcpContext = CollUtil.isNotEmpty(mcpIntents)
@@ -140,18 +149,18 @@ public class RetrievalEngine {
 
     /**
      * 子问题实际 TopK 计算规则：
-     * 1. 命中 KB 意图节点且配置了节点级 topK：取最大值（多意图保守放大）
+     * 1. "命中了多个 KB 意图节点时，取节点级 topK 配置的最大值"
      * 2. 没有任何可用节点级 topK：回退到全局 topK
      */
     private int resolveSubQuestionTopK(SubQuestionIntent intent, int fallbackTopK) {
-        return filterKbIntents(intent.nodeScores()).stream()
+        return filterKbIntents(intent.nodeScores()).stream()  //拿到这个子问题命中了那些知识库意图节点
                 .map(NodeScore::getNode)
                 .filter(Objects::nonNull)
-                .map(IntentNode::getTopK)
+                .map(IntentNode::getTopK)//每个意图节点可能有配置自己的top-k
                 .filter(Objects::nonNull)
-                .filter(topK -> topK > 0)
-                .max(Integer::compareTo)
-                .orElse(fallbackTopK);
+                .filter(topK -> topK > 0)//过滤掉配置为0的top-k
+                .max(Integer::compareTo)//取最大的top-k
+                .orElse(fallbackTopK);//没有节点配置top-k，则使用全局top-k
     }
 
     private void appendSection(StringBuilder builder, String question, String context) {
@@ -169,6 +178,7 @@ public class RetrievalEngine {
                 .toList();
     }
 
+    // 过滤出 知识库类型的 意图节点
     private List<NodeScore> filterKbIntents(List<NodeScore> nodeScores) {
         return nodeScores.stream()
                 .filter(ns -> ns.getScore() >= INTENT_MIN_SCORE)
@@ -194,12 +204,15 @@ public class RetrievalEngine {
 
         return contextFormatter.formatMcpContext(responses, mcpIntents);
     }
-
+    
+    // 检索并重排 KB 结果
     private KbResult retrieveAndRerank(SubQuestionIntent intent, List<NodeScore> kbIntents, int topK) {
-        // 使用多通道检索引擎（是否启用全局检索由置信度阈值决定）
+        //把单个子问题包装成列表
         List<SubQuestionIntent> subIntents = List.of(intent);
+        //检索
         List<RetrievedChunk> chunks = multiChannelRetrievalEngine.retrieveKnowledgeChannels(subIntents, topK);
 
+        // 如果检索结果为空，则返回空的 KB 结果
         if (CollUtil.isEmpty(chunks)) {
             return KbResult.empty();
         }

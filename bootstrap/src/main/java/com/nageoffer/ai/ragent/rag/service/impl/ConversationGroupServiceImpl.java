@@ -60,6 +60,7 @@ public class ConversationGroupServiceImpl implements ConversationGroupService {
         if (StrUtil.isBlank(conversationId) || StrUtil.isBlank(userId)) {
             return List.of();
         }
+        //根据conversationId和userId查询消息，消息类型为user或assistant，未删除
         var query = Wrappers.lambdaQuery(ConversationMessageDO.class)
                 .eq(ConversationMessageDO::getConversationId, conversationId)
                 .eq(ConversationMessageDO::getUserId, userId)
@@ -86,9 +87,9 @@ public class ConversationGroupServiceImpl implements ConversationGroupService {
                         .eq(ConversationMessageDO::getConversationId, conversationId)
                         .eq(ConversationMessageDO::getUserId, userId)
                         .eq(ConversationMessageDO::getDeleted, 0)
-                        .le(ConversationMessageDO::getCreateTime, at)
-                        .orderByDesc(ConversationMessageDO::getId)
-                        .last("limit 1")
+                        .le(ConversationMessageDO::getCreateTime, at)  //时间在at之前
+                        .orderByDesc(ConversationMessageDO::getId)   //id最大的排在前面
+                        .last("limit 1")  //获取最近的一条
         );
         return record == null ? null : record.getId();
     }

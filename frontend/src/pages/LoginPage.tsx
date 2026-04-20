@@ -40,7 +40,7 @@ export function LoginPage() {
         <div className="mb-6">
           <p className="font-display text-2xl font-semibold">欢迎回来</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            登录后继续你的检索增强对话。
+            登录后继续使用医疗助手服务。
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>

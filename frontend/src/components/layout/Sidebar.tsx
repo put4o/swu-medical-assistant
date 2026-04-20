@@ -2,7 +2,6 @@ import * as React from "react";
 import { differenceInCalendarDays, isValid } from "date-fns";
 import {
   BookOpen,
-  Bot,
   LogOut,
   MessageSquare,
   MoreHorizontal,
@@ -170,12 +169,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         <div className="border-b border-[#F0F0F0] pb-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#3B82F6]">
-              <Bot className="h-5 w-5 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden bg-white">
+              <img src="/OIP.png" alt="西南大学校医院" className="h-full w-full object-contain" />
             </div>
             <div style={{ fontFamily: sessionTitleFont }}>
-              <p className="text-base font-semibold text-[#1A1A1A]">Ragent AI 智能体</p>
-              <p className="text-xs text-[#999999]">Powered by AI</p>
+              <p className="text-base font-semibold text-[#1A1A1A]">西南大学校医院</p>
+              <p className="text-xs text-[#999999]">医疗助手</p>
             </div>
           </div>
         </div>

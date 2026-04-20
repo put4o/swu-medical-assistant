@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ArrowUpRight, BookOpen, Bot, Brain, Check, Lightbulb, Send, Square } from "lucide-react";
+import { AlertCircle, ArrowUpRight, Brain, FileText, Send, Square, Stethoscope } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { listSampleQuestions } from "@/services/sampleQuestionService";
@@ -13,26 +13,26 @@ type PromptPreset = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-const PRESET_ICONS = [BookOpen, Check, Lightbulb];
+const PRESET_ICONS = [Stethoscope, FileText, AlertCircle];
 
 const DEFAULT_PRESETS: PromptPreset[] = [
   {
-    title: "内容总结",
-    description: "提炼 3-5 条关键信息与行动点",
-    prompt: "请帮我总结以下内容，并列出3-5条要点：",
-    icon: BookOpen
+    title: "就医指南",
+    description: "了解就诊流程与科室指引",
+    prompt: "请问校医院就诊流程是怎样的？",
+    icon: Stethoscope
   },
   {
-    title: "任务拆解",
-    description: "把目标拆成可执行步骤与优先级",
-    prompt: "请把下面需求拆解为步骤，并给出优先级和里程碑：",
-    icon: Check
+    title: "常见问题",
+    description: "解答健康与就医相关疑问",
+    prompt: "校医院常见问题有哪些？",
+    icon: FileText
   },
   {
-    title: "灵感扩展",
-    description: "给出多个方案并比较优缺点",
-    prompt: "围绕以下主题给出5-8个方案，并注明优缺点：",
-    icon: Lightbulb
+    title: "健康咨询",
+    description: "获取专业健康建议与科普",
+    prompt: "我想咨询一下健康问题：",
+    icon: AlertCircle
   }
 ];
 
@@ -149,17 +149,14 @@ export function WelcomeScreen() {
           className="text-center opacity-0 animate-fade-up"
           style={{ animationFillMode: "both" }}
         >
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-medium text-[#2563EB] shadow-sm">
-            <Bot className="h-3.5 w-3.5" />
-            RAG 智能问答
-          </span>
-          <h1 className="mt-4 font-display text-4xl leading-tight tracking-tight text-[#111827] sm:text-5xl md:text-6xl">
-            把问题变成
-            <span className="text-gradient">清晰答案</span>
-          </h1>
-          <p className="mt-4 text-base text-[#4B5563] sm:text-lg">
-            结构化提问、知识检索与深度思考，一次对话给出可执行方案
-          </p>
+            <h1 className="mt-4 font-display text-4xl leading-tight tracking-tight text-[#111827] sm:text-5xl md:text-6xl">
+              西南大学校医院
+              <br />
+              <span className="text-gradient">智能医疗助手</span>
+            </h1>
+            <p className="mt-4 text-base text-[#4B5563] sm:text-lg">
+              校医院健康咨询、就医指南与常见问题解答
+            </p>
         </div>
 
         <div
@@ -247,7 +244,7 @@ export function WelcomeScreen() {
           {deepThinkingEnabled ? (
             <p className="mt-3 text-xs text-[#2563EB]">
               <span className="inline-flex items-center gap-1.5">
-                <Lightbulb className="h-3.5 w-3.5" />
+                <Brain className="h-3.5 w-3.5" />
                 深度思考模式已开启，AI将进行更深入的分析推理
               </span>
             </p>
