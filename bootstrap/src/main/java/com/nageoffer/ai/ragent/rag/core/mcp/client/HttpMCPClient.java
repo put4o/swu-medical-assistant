@@ -91,6 +91,11 @@ public class HttpMCPClient implements MCPClient {
 
     @Override
     public String callTool(String toolName, Map<String, Object> arguments) {
+        return callTool(toolName, arguments, null);
+    }
+
+    @Override
+    public String callTool(String toolName, Map<String, Object> arguments, String userId) {
         if (toolName == null || toolName.isEmpty()) {
             log.warn("MCP 工具调用失败，toolName 为空");
             return null;
@@ -100,7 +105,7 @@ public class HttpMCPClient implements MCPClient {
         params.addProperty("name", toolName);
         params.add("arguments", GSON.toJsonTree(arguments != null ? arguments : new HashMap<>()));
 
-        JsonObject result = sendRequest("tools/call", params);
+        JsonObject result = sendRequest("tools/call", params, userId);
         if (result == null) {
             return null;
         }
@@ -118,6 +123,13 @@ public class HttpMCPClient implements MCPClient {
      * 发送 JSON-RPC 2.0 请求
      */
     private JsonObject sendRequest(String method, JsonObject params) {
+        return sendRequest(method, params, null);
+    }
+
+    /**
+     * 发送 JSON-RPC 2.0 请求（可携带用户身份）
+     */
+    private JsonObject sendRequest(String method, JsonObject params, String userId) {
         JsonObject rpcRequest = new JsonObject();
         rpcRequest.addProperty("jsonrpc", "2.0");
         rpcRequest.addProperty("id", requestId.getAndIncrement());
@@ -127,10 +139,13 @@ public class HttpMCPClient implements MCPClient {
         String url = resolveMcpEndpointUrl();
         String requestBody = GSON.toJson(rpcRequest);
 
-        Request request = new Request.Builder()
+        Request.Builder builder = new Request.Builder()
                 .url(url)
-                .post(RequestBody.create(requestBody, JSON))
-                .build();
+                .post(RequestBody.create(requestBody, JSON));
+        if (userId != null && !userId.isBlank()) {
+            builder.addHeader("X-User-Id", userId);
+        }
+        Request request = builder.build();
 
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {

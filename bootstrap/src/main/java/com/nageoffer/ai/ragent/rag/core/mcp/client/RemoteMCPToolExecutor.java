@@ -44,7 +44,7 @@ public class RemoteMCPToolExecutor implements MCPToolExecutor {
     public MCPResponse execute(MCPRequest request) {
         long start = System.currentTimeMillis();
         try {
-            String result = mcpClient.callTool(toolDefinition.getToolId(), request.getParameters());
+            String result = mcpClient.callTool(toolDefinition.getToolId(), request.getParameters(), request.getUserId());
             long costMs = System.currentTimeMillis() - start;
 
             if (result == null) {

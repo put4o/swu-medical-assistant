@@ -41,8 +41,7 @@ import java.util.Optional;
 public class MCPDispatcher {
 
     private final MCPToolRegistry toolRegistry;
-
-    public JsonRpcResponse dispatch(JsonRpcRequest request) {
+    public JsonRpcResponse dispatch(JsonRpcRequest request, String userId, String conversationId) {
         String method = request.getMethod();
         Object id = request.getId();
 
@@ -55,9 +54,23 @@ public class MCPDispatcher {
         return switch (method) {
             case "initialize" -> handleInitialize(id);
             case "tools/list" -> handleToolsList(id);
-            case "tools/call" -> handleToolsCall(id, request.getParams());
+            case "tools/call" -> handleToolsCall(id, request.getParams(), userId, conversationId);
             default -> JsonRpcResponse.error(id, JsonRpcError.METHOD_NOT_FOUND, "Unknown method: " + method);
         };
+    }
+
+    /**
+     * 从 HTTP Header 中提取 userId 的简化分发
+     */
+    public JsonRpcResponse dispatch(JsonRpcRequest request, String userId) {
+        return dispatch(request, userId, null);
+    }
+
+    /**
+     * 兼容无 userId 的旧调用
+     */
+    public JsonRpcResponse dispatch(JsonRpcRequest request) {
+        return dispatch(request, null, null);
     }
 
     private JsonRpcResponse handleInitialize(Object id) {
@@ -84,7 +97,7 @@ public class MCPDispatcher {
         return JsonRpcResponse.success(id, Map.of("tools", schemas));
     }
 
-    private JsonRpcResponse handleToolsCall(Object id, Map<String, Object> params) {
+    private JsonRpcResponse handleToolsCall(Object id, Map<String, Object> params, String userId, String conversationId) {
         if (params == null || !params.containsKey("name") || params.get("name") == null) {
             return JsonRpcResponse.error(id, JsonRpcError.INVALID_PARAMS, "Missing 'name' in params");
         }
@@ -110,6 +123,8 @@ public class MCPDispatcher {
 
         MCPToolRequest toolRequest = MCPToolRequest.builder()
                 .toolId(toolName)
+                .userId(userId)
+                .conversationId(conversationId)
                 .parameters(arguments)
                 .build();
 

@@ -50,4 +50,14 @@ public interface MCPClient {
      * @return 工具调用结果（文本形式）
      */
     String callTool(String toolName, Map<String, Object> arguments);
+
+    /**
+     * 调用远程工具（可携带用户身份）
+     *
+     * @param toolName  工具名称（即 toolId）
+     * @param arguments 调用参数
+     * @param userId    当前登录用户 ID，会通过 HTTP Header 传递给 MCP Server
+     * @return 工具调用结果（文本形式）
+     */
+    String callTool(String toolName, Map<String, Object> arguments, String userId);
 }

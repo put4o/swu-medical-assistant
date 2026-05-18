@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -36,8 +37,9 @@ public class MCPEndpoint {
     private final MCPDispatcher dispatcher;
 
     @PostMapping("/mcp")
-    public ResponseEntity<?> handle(@RequestBody JsonRpcRequest request) {
-        JsonRpcResponse response = dispatcher.dispatch(request);
+    public ResponseEntity<?> handle(@RequestBody JsonRpcRequest request,
+                                   @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        JsonRpcResponse response = dispatcher.dispatch(request, userId);
         if (response == null) {
             // JSON-RPC Notification：无需响应体
             return ResponseEntity.noContent().build();

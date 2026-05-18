@@ -54,6 +54,7 @@ public class ChatRateLimitAspect {
     private final RagTraceProperties ragTraceProperties;
     private final RagTraceRecordService traceRecordService;
 
+    //是一个 AOP 环绕通知，拦截所有标注了 @ChatRateLimit 注解的方法。
     @Around("@annotation(com.nageoffer.ai.ragent.rag.aop.ChatRateLimit)")
     public Object limitStreamChat(ProceedingJoinPoint joinPoint) throws Throwable {
         Object[] args = joinPoint.getArgs();
@@ -69,6 +70,9 @@ public class ChatRateLimitAspect {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
 
+        // 委托给 ChatQueueLimiter
+        //不直接执行业务逻辑，而是把"要执行的任务"（一个 Runnable）塞进队列。真正执不执行，取决于能不能拿到"令牌"。
+        //enqueue 的最后一个参数 () -> { ... } 是一个延迟执行的回调，只有排队排到了、拿到令牌了，才会执行这个回调。
         chatQueueLimiter.enqueue(question, actualConversationId, emitter, () -> {
             invokeWithTrace(method, target, args, question, actualConversationId, emitter);
         });

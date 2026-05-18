@@ -19,6 +19,7 @@ package com.nageoffer.ai.ragent.rag.core.retrieve;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.rag.dto.KbResult;
 import com.nageoffer.ai.ragent.rag.dto.RetrievalContext;
 import com.nageoffer.ai.ragent.rag.dto.SubQuestionIntent;
@@ -289,6 +290,7 @@ public class RetrievalEngine {
         return MCPRequest.builder()
                 .toolId(toolId)
                 .userQuestion(question)
+                .userId(UserContext.getUserId())
                 .parameters(params != null ? params : new HashMap<>())
                 .build();
     }

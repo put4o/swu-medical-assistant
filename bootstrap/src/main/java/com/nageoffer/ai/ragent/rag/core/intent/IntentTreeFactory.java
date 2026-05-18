@@ -246,7 +246,57 @@ public class IntentTreeFactory {
         sales.setChildren(List.of(dingTaskSales));
         roots.add(sales);
 
-        // ========== 4. 系统交互 / 助手说明 ==========
+        // ========== 4. 校医院服务（MCP 实时数据）==========
+
+        IntentNode medical = IntentNode.builder()
+                .id("medical")
+                .name("校医院服务")
+                .level(DOMAIN)
+                .kind(IntentKind.MCP)
+                .build();
+
+        IntentNode queueQuery = IntentNode.builder()
+                .id("medical-queue")
+                .name("叫号查询")
+                .level(CATEGORY)
+                .parentId(medical.getId())
+                .mcpToolId("queue_status")
+                .kind(IntentKind.MCP)
+                .promptTemplate(MCP_QUEUE_STATUS_PROMPT_TEMPLATE)
+                .paramPromptTemplate(MCP_QUEUE_STATUS_PARAMETER_EXTRACT_PROMPT)
+                .description("查询校医院门诊的当前叫号状态和排队情况")
+                .examples(List.of(
+                        "现在内科有多少人在排队？",
+                        "骨科还要等多久？",
+                        "儿科现在人多吗？",
+                        "今天口腔科现在到几号了？",
+                        "妇科现在等待人数"
+                ))
+                .build();
+
+        IntentNode reportQuery = IntentNode.builder()
+                .id("medical-report")
+                .name("报告查询")
+                .level(CATEGORY)
+                .parentId(medical.getId())
+                .mcpToolId("report_query")
+                .kind(IntentKind.MCP)
+                .promptTemplate(MCP_REPORT_QUERY_PROMPT_TEMPLATE)
+                .paramPromptTemplate(MCP_REPORT_QUERY_PARAMETER_EXTRACT_PROMPT)
+                .description("查询患者的检验、检查报告结果，支持PDF报告下载")
+                .examples(List.of(
+                        "我的血常规报告出来了吗？",
+                        "最近的CT检查结果是什么？",
+                        "查看一下上周的尿常规",
+                        "生化检查报告有了吗？",
+                        "核磁报告在哪里下载"
+                ))
+                .build();
+
+        medical.setChildren(List.of(queueQuery, reportQuery));
+        roots.add(medical);
+
+        // ========== 5. 系统交互 / 助手说明 ==========
         IntentNode sys = IntentNode.builder()
                 .id("sys")
                 .name("系统交互")
@@ -354,6 +404,85 @@ public class IntentTreeFactory {
             %s
             """;
 
+    private static final String MCP_QUEUE_STATUS_PROMPT_TEMPLATE = """
+            Hello，你是专业的校医院门诊助手。系统已调用内部工具获取到了最新的【叫号数据】（通常为 JSON 格式）。
+            你的任务是将这些结构化数据转化为易读的自然语言回复。
+
+            【核心处理规则】
+            1. **直接回答**：开门见山地回答用户问题，不要使用"根据数据/JSON显示"这类废话作为开头。
+            2. **去技术化**：将字段名转换为业务术语（例如将 `current_no` 转述为"当前叫到几号"，`waiting_count` 转述为"有多少人在等"）。
+            3. **格式化输出**：
+               - **多条数据**：如果数据是列表（超过 2 条），**必须使用 Markdown 表格**展示。
+               - **单条数据**：使用分点（Bullet points）或自然段落清晰表述。
+               - **关键信息**：对号码、人数、等待时间等关键信息进行加粗（**Bold**）处理。
+            4. **等待时间提示**：如果等待人数较多（如超过 10 人），主动提醒用户大概需要等待的时间。
+
+            【异常与边界处理】
+            1. **数据为空**：如果【叫号数据】为空，请直接回答"当前未查询到相关叫号信息，可能该科室今日未开诊或已下班。"
+            2. **状态说明**：
+               - 如果 `status` 为 `paused`，提示用户"该科室当前暂停叫号，请稍后再试。"
+               - 如果 `status` 为 `closed`，提示用户"该科室今日已停诊。"
+            3. **完全不匹配**：仅当【叫号数据】与【用户问题】完全不相关时才回答无法匹配。
+
+            【禁止事项】
+            - 严禁根据数据内容臆造不存在的结论。
+            - 严禁透漏你正在解析 JSON 数据的过程。
+            - 不要输出 emoji 表情符号。
+
+            {{INTENT_RULES}}
+
+            【叫号数据】
+            %s
+
+            【用户问题】
+            %s
+            """;
+
+    private static final String MCP_QUEUE_STATUS_PARAMETER_EXTRACT_PROMPT = """
+            Hello，你是一个高度专业且严谨的【工具参数提取器】。
+
+            你的唯一任务是：严格按照提供的【工具定义】（Tool Definition）和【参数列表】（Parameters）的约束，从【用户问题】（User Query）中提取所有必要的参数，并以 JSON 格式输出。
+
+            ---
+
+            ### 核心提取逻辑
+
+            1. **数据源限定**：只使用【用户问题】中的信息作为提取来源。
+            2. **参数范围限定**：只提取 <parameters> 标签内定义的参数，**禁止**添加任何工具定义中不存在的额外字段。
+            3. **非必填参数处理**：
+               - 如果参数是 **"required": false** 且在用户问题中无法找到明确值：
+                 - 如果有默认值，使用默认值。
+                 - 如果没有默认值，**请忽略该参数，不要将其包含在最终的 JSON 输出中。**
+
+            ### 通用数据类型处理规则
+
+            1. **字符串（String）**：
+               - **原样提取**：直接截取用户问题中提及的科室名称、医生姓名等，不需要进行任何转换或缩写。
+               - 常见科室名称：内科、外科、儿科、妇科、骨科、皮肤科、口腔科、眼科、耳鼻喉科、中医科、急诊科、产科等。
+               - 如果字符串是空或未提及，**请忽略该参数，不要将其包含在最终的 JSON 输出中。**
+
+            ---
+
+            ### 输入数据与输出格式
+
+            请勿在输出 JSON 对象之外添加任何解释、注释或其他文本。
+
+            #### 【工具定义】
+            <tool_definition>
+            %s
+            </tool_definition>
+
+            #### 【用户问题】
+            <user_query>
+            %s
+            </user_query>
+
+            #### 【输出格式（JSON Object Only）】
+
+            {"param_name_1": value_1, "param_name_2": value_2, ...}
+
+            """;
+
     public static final String MCP_SALES_DATA_PARAMETER_EXTRACT_PROMPT = """
             Hello，你是一个高度专业且严谨的【工具参数提取器】。
             
@@ -452,6 +581,92 @@ public class IntentTreeFactory {
             
             【用户问题】
             %s
+            """;
+
+    private static final String MCP_REPORT_QUERY_PROMPT_TEMPLATE = """
+            Hello，你是专业的校医院检查报告助手。系统已调用内部工具获取到了【报告数据】（通常为 JSON 格式）。
+            你的任务是将这些结构化数据转化为易读的自然语言回复。
+
+            【核心处理规则】
+            1. **直接回答**：开门见山地回答用户问题，不要使用"根据数据/JSON显示"这类废话作为开头。
+            2. **去技术化**：将字段名转换为业务术语（例如将 `status: available` 转述为"报告已出"，`items` 转述为"检查项目"）。
+            3. **格式化输出**：
+               - **多条报告**：如果数据是列表（超过 2 条），**必须使用 Markdown 表格**展示。
+               - **单条报告**：使用分点（Bullet points）或自然段落清晰表述。
+               - **关键信息**：对异常指标、报告时间、报告状态等关键信息进行加粗（**Bold**）处理。
+            4. **异常指标提示**：如果存在异常指标（H 高/L 低），主动提醒用户关注，并显示参考范围。
+            5. **PDF 提示**：如果报告中包含 PDF 下载链接，告知用户可以下载完整报告。
+
+            【报告状态说明】
+            - `pending` → 报告尚未开始处理，提示用户"报告尚未开始处理，请稍后再试。"
+            - `processing` → 报告正在处理中，提示用户"报告正在处理中，预计 XX 时间出具。"
+            - `available` → 报告已出具，显示完整报告内容。
+
+            【异常与边界处理】
+            1. **数据为空**：如果【报告数据】为空，请直接回答"当前未查询到符合条件的报告记录。"
+            2. **完全不匹配**：仅当【报告数据】与【用户问题】完全不相关时才回答无法匹配。
+
+            【禁止事项】
+            - 严禁根据数据内容臆造不存在的结论。
+            - 严禁透漏你正在解析 JSON 数据的过程。
+            - 不要输出 emoji 表情符号。
+
+            {{INTENT_RULES}}
+
+            【报告数据】
+            %s
+
+            【用户问题】
+            %s
+            """;
+
+    private static final String MCP_REPORT_QUERY_PARAMETER_EXTRACT_PROMPT = """
+            Hello，你是一个高度专业且严谨的【工具参数提取器】。
+
+            你的唯一任务是：严格按照提供的【工具定义】（Tool Definition）和【参数列表】（Parameters）的约束，从【用户问题】（User Query）中提取所有必要的参数，并以 JSON 格式输出。
+
+            ---
+
+            ### 核心提取逻辑
+
+            1. **数据源限定**：只使用【用户问题】中的信息作为提取来源。
+            2. **参数范围限定**：只提取 <parameters> 标签内定义的参数，**禁止**添加任何工具定义中不存在的额外字段。
+            3. **非必填参数处理**：
+               - 如果参数是 **"required": false** 且在用户问题中无法找到明确值：
+                 - 如果有默认值，使用默认值。
+                 - 如果没有默认值，**请忽略该参数，不要将其包含在最终的 JSON 输出中。**
+
+            ### 通用数据类型处理规则
+
+            1. **字符串（String）**：
+               - **原样提取**：直接截取用户问题中提及的报告类型、日期等，不需要进行任何转换或缩写。
+               - 常见报告类型：血常规、尿常规、生化、CT、核磁、B超、心电图、X光、超声、病理等。
+               - 如果字符串是空或未提及，**请忽略该参数，不要将其包含在最终的 JSON 输出中。**
+            2. **日期（Date）**：
+               - **相对时间**：将"上周"、"上个月"、"最近一周"等相对时间表述，转换为对应的 start_date 和 end_date。
+               - **直接提取**：如果用户明确说了日期（YYYY-MM-DD 格式），直接提取。
+               - 如果日期是空或未提及，**请忽略该参数，使用默认值（最近30天）。**
+
+            ---
+
+            ### 输入数据与输出格式
+
+            请勿在输出 JSON 对象之外添加任何解释、注释或其他文本。
+
+            #### 【工具定义】
+            <tool_definition>
+            %s
+            </tool_definition>
+
+            #### 【用户问题】
+            <user_query>
+            %s
+            </user_query>
+
+            #### 【输出格式（JSON Object Only）】
+
+            {"param_name_1": value_1, "param_name_2": value_2, ...}
+
             """;
 
 }
